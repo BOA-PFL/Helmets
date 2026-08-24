@@ -1,0 +1,730 @@
+---
+title: "PFL DATA REPORT"
+format: 
+  docx:
+    reference-doc: 'C:/Users/bethany.kilpatrick/Boa Technology Inc/PFL Team - General/Testing Segments/Report_Template.docx'
+editor: visual
+editor_options: 
+  chunk_output_type: console
+execute: 
+  error: true
+  warning: false 
+---
+
+# CONFIDENTAL CONTENT FOR BOA EMPLOYEES ONLY. PLEASE CONTACT PFL DIRECTLY WITH ANY QUESTIONS.
+
++--------------------+------------------------------+
+| ## Test Name       | ## Smith - Snow              |
+|                    |                              |
+| **Benefit:**       |                              |
++--------------------+------------------------------+
+| **Date:**          | 3/2026                       |
++--------------------+------------------------------+
+| **Test Type:**     | Performance                  |
++--------------------+------------------------------+
+| **Configurations** | Baseline: Smith Stock        |
+|                    |                              |
+|                    | Test configuration: BOA FS 2 |
++--------------------+------------------------------+
+
+# Hypotheses
+
+-   H1: BOA FS2 systems will provide more even pressure distribution, with lower pressure points around the head.
+
+# Methods
+
++---------------------------+---------------------------+
+| **Equipment**             | **Measurements**          |
++===========================+===========================+
+| -   Tactile Pressure head | Fit:                      |
+|                           |                           |
+|                           | -   Variation in pressure |
+|                           |                           |
+|                           | -   Peak pressures        |
+|                           |                           |
+|                           | -   Average pressures     |
+|                           |                           |
+|                           | -   Contact Area          |
++---------------------------+---------------------------+
+
+## Configurations
+
+| BOA FS1 | BOA FS2 |
+|---------|---------|
+|         |         |
+
+# SUMMARY
+
+Replace this text in final doc with takehome points from the test.
+
+-   Point 1
+
+-   Point 2
+
+**Development Recommendations:**
+
+-   Recommendation 1
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+library(readxl)
+library(tidyverse)
+library(tm)
+library(SnowballC)
+library(RColorBrewer)
+library(readxl)
+library(brms)
+library(patchwork)
+library(tidyr)
+library(fmsb)
+library(gt)
+library(ggplot2)
+library("ggpubr") 
+library(flextable) # install.packages("flextable")
+
+
+
+rm(list=ls())
+```
+
+```{r}
+#| echo: false
+#| include: false
+
+
+#Load in Compiled Qualitative Sheet
+# qualDat <- read_xlsx('C:\\Users\\bethany.kilpatrick\\BOA Technology Inc\\PFL Team - General\\Testing Segments\\Helmets\\SmithPressure_Smith\\Qual_SN_Smith.xlsx') 
+
+
+# Load in compiled pressure data
+pressDat <- read.csv('C:\\Users\\bethany.kilpatrick\\Boa Technology Inc\\PFL Team - General\\Testing Segments\\Helmets\\2026_Performance_GiantPressure_Giant\\CSV\\0_CompiledHelmetData.csv') 
+
+# Change for helmet sport segment
+# pressDat <- subset(pressDat, pressDat$Helmet == 'SN')
+
+
+
+baseline <- 'Aero' # baseline configuration
+
+otherConfigs <- c('Bike') # other configurations tested against base
+allConfigs <- c(baseline, otherConfigs) 
+
+# qualDat$Config <- factor(qualDat$Config, allConfigs)
+
+pressDat <- as_tibble(pressDat) # creating the data frame
+# pressDat$Config <- factor(pressDat$Config, allConfigs)
+
+
+withinSubPlotAvg <- function(inputDF, colName, dir = 'lower', yLabel = NULL) {
+  # Validate the `dir` input
+  if(!dir %in% c('lower', 'higher')){
+    stop("The 'dir' argument must be either 'lower' or 'higher'.")
+  }
+  # Calculate the overall mean and SD for each Config, removing NA values
+  overallMean <- inputDF %>%
+    group_by(Config) %>%
+    summarize(
+      overallMean = mean(!! sym(colName), na.rm = TRUE),
+      sd = sd(!! sym(colName), na.rm = TRUE),
+      .groups = 'drop'
+    )
+
+  # Plotting with ggplot2
+  plot <- ggplot() +
+    geom_bar(data = overallMean, mapping = aes(x = as.factor(Config), y = overallMean, fill = 'Overall Mean'),
+             stat = 'identity', alpha = 0.85) +
+    geom_errorbar(data = overallMean, mapping = aes(x = as.factor(Config), ymin = overallMean - sd, ymax = overallMean + sd),
+                  width = 0.25, size = 0.8) +
+    scale_fill_manual(values = c('Overall Mean' = '#003C4C')) +
+    xlab('Configuration') +
+    theme(text = element_text(size = 16), legend.title = element_blank())
+  # Set y-axis label
+  if (!is.null(yLabel)) {
+    plot <- plot + ylab(yLabel)
+  } else {
+    plot <- plot + ylab(paste0(colName))
+  }
+  print(plot)
+}
+
+# 
+# 
+# extractVals <- function(dat, mod, configNames, baseConfig, var, dir) {
+#   
+#   Config = rep(NA, length(configNames))
+#   ProbImp = matrix(0, length(configNames))
+#   lowCI = matrix(0, length(configNames))
+#   highCI = matrix(0, length(configNames))
+#   
+#   for (i in 1:length(configNames)) {
+#     configName = configNames[i]
+#     configColName <- paste('b_Config', configName, sep = "")
+#     posterior <- posterior_samples(mod)
+#     
+#     if (dir == 'lower'){
+#       prob <- sum(posterior[,configColName] < 0) / length(posterior[,configColName])
+#       
+#     } else if (dir == 'higher') {
+#       prob <- sum(posterior[,configColName] > 0) / length(posterior[,configColName])
+#     }
+#     
+#     ci <- posterior_interval(mod, prob = 0.80)
+#     ciLow <- ci[configColName,1] 
+#     ciHigh <- ci[configColName,2]
+#     
+#     # Changed: removed group_by(Order), now calculates SD and mean across all data
+#     meanSD <- sd(dat[[var]], na.rm = TRUE)
+#     mean   <- mean(dat[[var]], na.rm = TRUE)
+# 
+#     ci_LowPct <- meanSD*ciLow/mean*100
+#     ci_HighPct <- meanSD*ciHigh/mean*100
+#     
+#     Config[i] = configName
+#     ProbImp[i] = prob
+#     lowCI[i] = ci_LowPct
+#     highCI[i] = ci_HighPct
+#   }
+#   
+#   ProbImp = round(ProbImp*100)
+#   lowCI = round(lowCI, 1)
+#   highCI = round(highCI,1)
+#   output = cbind(Config, ProbImp, lowCI, highCI)
+#   
+#   colnames(output) = c('Config', 'Probability of Improvement', 'Low end of CI', 'High end of CI')
+#   
+#   sentences = rep(NA, nrow(output))
+#   
+#   for (i in 1:nrow(output)){
+#     if (as.numeric(output[i,2]) >= 90){
+#       sentences[i] <- paste0('We have meaningful confidence that ',output[i,1], ' outperformed ', baseConfig, ' (',output[i,2], '%)', '\n', '\t', '- Estimated difference: ',output[i,3],' to ',output[i,4],'%' )
+#     } else if (as.numeric(output[i,2]) >= 80) {      
+#       sentences[i] <- paste('We have moderate confidence that',output[i,1], 'outperformed', baseConfig, '(',output[i,2], '%)','\n', '\t', '- Estimated difference:',output[i,3],'to',output[i,4],'%')
+#     } else if (as.numeric(output[i,2]) >= 70){
+#       sentences[i] <- paste('We have minimal confidence that',output[i,1], 'outperformed', baseConfig, '(',output[i,2], '%)','\n', '\t', 'Estimated difference:',output[i,3],'to',output[i,4],'%')
+#     } else if (as.numeric(output[i,2]) >= 30){
+#       sentences[i] <- paste('There were inconsistent differences between',output[i,1],'and',baseConfig,'(',output[i,2],'%)','\n', '\t', 'Estimated difference:',output[i,3],'to',output[i,4],'%')
+#     } else if (as.numeric(output[i,2]) >= 20){
+#       sentences[i] <- paste('We have minimal confidence that',output[i,1],'performed worse than',baseConfig,'(',(100 - as.numeric(output[i,2])),'%)','\n', '\t', 'Estimated difference:',output[i,3],'to',output[i,4],'%')
+#     } else if (as.numeric(output[i,2]) >= 10){
+#       sentences[i] <- paste('We have moderate confidence that',output[i,1],'performed worse than',baseConfig,'(',(100 - as.numeric(output[i,2])),'%)','\n', '\t', 'Estimated difference:',output[i,3],'to',output[i,4],'%')
+#     } else {
+#       sentences[i] <- paste('We have meaningful confidence that',output[i,1],'performed worse than',baseConfig,'(',(100 - as.numeric(output[i,2])),'%)','\n', '\t', 'Estimated difference:',output[i,3],'to',output[i,4],'%')
+#     }
+#   }
+#   
+#   writeLines(sentences)
+#   return(invisible(NULL))
+# }
+ 
+
+
+# 
+# 
+# withinQualPlotAvg <- function(inputDF, colName, dir = 'lower', yLabel = NULL) {
+#   # Validate the `dir` input
+#   if(!dir %in% c('lower', 'higher')){
+#     stop("The 'dir' argument must be either 'lower' or 'higher'.")
+#   }
+#   # Calculate the mean for each Subject and Config, removing NA values
+#   meanDat <- inputDF %>%
+#     group_by(Subject, Config) %>%
+#     summarize(mean = mean(!! sym(colName), na.rm = TRUE), .groups = 'drop')
+#   # Determine the best configuration based on the direction
+#   if (dir == 'lower'){
+#     whichConfig <- meanDat %>%
+#       group_by(Subject) %>%
+#       reframe(BestConfig = Config[which.min(mean)])
+#   } else if (dir == 'higher') {
+#     whichConfig <- meanDat %>%
+#       group_by(Subject) %>%
+#       reframe(BestConfig = Config[which.max(mean)])
+#   }
+#   # Rename BestConfig to Config for merging
+#   whichConfig <- whichConfig %>%
+#     rename(Config = BestConfig)
+#   # Merge the best configuration back to the mean data
+#   mergedData <- merge(meanDat, whichConfig, by = c("Subject", "Config"))
+#   # Calculate overall mean for each Config, removing NA values
+#   overallMean <- meanDat %>%
+#     group_by(Config) %>%
+#     summarize(overallMean = mean(mean, na.rm = TRUE), .groups = 'drop')
+#   # Plotting with ggplot2
+#   plot <- ggplot() +
+#     geom_point(data = meanDat, mapping = aes(x = as.factor(Config), y = mean, group = Subject, color = 'Subject Means'), size = 3, alpha = 0.5) +
+#     geom_line(data = meanDat, mapping = aes(x = as.factor(Config), y = mean, group = Subject, color = 'Subject Means'), alpha = 0.5) +
+#     geom_point(data = overallMean, mapping = aes(x = as.factor(Config), y = overallMean, color = 'Overall Mean'), size = 4, shape = 17) +
+#     geom_line(data = overallMean, mapping = aes(x = as.factor(Config), y = overallMean, group = 1, color = 'Overall Mean'), linewidth = 1.5) +
+#     scale_color_manual(values = c('Subject Means' = 'grey', 'Overall Mean' = '#003C4C')) +
+#     xlab('Configuration') +
+#     theme(text = element_text(size = 16), legend.title = element_blank())
+#   # Set y-axis label
+#   if (!is.null(yLabel)) {
+#     plot <- plot + ylab(yLabel)
+#   } else {
+#     plot <- plot + ylab(paste0(colName))
+#   }
+#   print(plot)
+# }
+```
+
+## Qualitative
+
+```{r}
+#| echo: false
+#| layout-ncol: 2
+#| tbl-column: page-right
+#| fig-column: page-left
+#| warning: false
+#| fig-height: 7
+#| fig-width: 4
+
+
+# 
+# qualDat %>%
+#   pivot_longer(cols = OverallComfort:`Side Fit`,
+#                names_to = "Location", values_to = "Rating") %>%
+#   group_by(Location, Config) %>%
+#   summarize(
+#     avg = round(mean(Rating, na.rm = TRUE), digits = 1)
+# 
+#   ) %>%
+#   gt()
+# 
+# #Defining the rating for the location
+# #Density plots for fit ratings of shoe locations
+# qualDat <- pivot_longer(qualDat, cols = `Back Fit`:`Side Fit`, names_to = 'Location', values_to = 'Rating')
+# 
+# 
+# 
+# 
+# qualDat$Location <- factor(qualDat$Location, c('Back Fit', 'Front Fit', 'Side Fit'))
+# 
+# 
+# 
+# a <- withinQualPlotAvg(qualDat, colName = 'OverallComfort', dir = 'higher', yLabel = 'Overall Fit Rating')
+# 
+# b <- withinQualPlotAvg(qualDat, colName = 'OverallSecurity', dir = 'higher', yLabel = 'Overall Security Rating') 
+# 
+# 
+# d <- withinQualPlotAvg(qualDat, colName = 'LongTermFit', dir = 'higher', yLabel = 'Long Term Fit Rating')
+# 
+# 
+# c <- ggplot(qualDat, mapping = aes(x = Rating, fill = Config)) +
+#   geom_histogram(position = 'dodge', binwidth = 1) + facet_wrap(~Location) + scale_fill_manual(values=c("#999999", "#00966C", "#ECE81A","#DC582A","#CAF0E4")) +
+#   ylab('Responses') + theme(text=element_text(size=12)) + geom_vline(xintercept = 5)
+# 
+# 
+# figs <- ggarrange(a, b, c, ncol = 1, nrow = 3)
+# 
+# 
+# figs
+```
+
+## All Sides of Head
+
+### Peak Pressure
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+
+maxAll<- pressDat %>%
+  group_by(Config) %>%
+  mutate(z_score = scale(MaxPress_all))
+
+
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+p <- withinSubPlotAvg(maxAll, colName = 'MaxPress_all', dir = 'lower','Peak Pressure (kPa) - All Sides')
+
+maxAll%>%
+  group_by(Config) %>%
+  summarize(
+    mean_L_all = round(mean(MaxPress_all, na.rm = TRUE), 2),
+    sd_L_all   = round(sd(MaxPress_all, na.rm = TRUE), 1),
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_L_all = "Mean",
+    sd_L_all   = "SD"
+  )
+```
+
+### Contact Area
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+ctAll <- pressDat %>% 
+  mutate(z_score = scale(avg_all_ContArea)) %>% 
+  group_by(Config)
+
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+ 
+
+
+p <- withinSubPlotAvg(ctAll, colName = 'avg_all_ContArea', dir = 'higher','Contact Area (sq. in.) - All Sides')
+
+
+
+ctAll %>%
+  group_by(Config) %>%
+  summarize(
+    mean_L_all = round(mean(avg_all_ContArea, na.rm = TRUE), 2),
+    sd_L_all   = round(sd(avg_all_ContArea, na.rm = TRUE), 1),
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_L_all = "Mean",
+    sd_L_all   = "SD"
+  )
+```
+
+## Forehead
+
+### Peak Pressure
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+foreMax <- pressDat %>% 
+  mutate(z_score = scale(frontalMax)) %>% 
+  group_by(Config)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+
+p <- withinSubPlotAvg(foreMax, colName = 'frontalMax', dir = 'higher','Peak Pressure (kPa) - Forehead')
+
+
+
+
+foreMax %>%
+  group_by(Config) %>%
+  summarize(
+    mean_L_all = round(mean(frontalMax, na.rm = TRUE), 2),
+    sd_L_all   = round(sd(frontalMax, na.rm = TRUE), 1),
+  ) %>%
+   flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_L_all = "Mean",
+    sd_L_all   = "SD"
+  )
+```
+
+### Contact Area
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+
+foreContArea <- pressDat %>% 
+  mutate(z_score = scale(ContArea_Forehead)) %>% 
+  group_by(Config) 
+
+
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2 
+
+
+
+p <- withinSubPlotAvg(foreContArea, colName = 'ContArea_Forehead', dir = 'lower','Contact Area (sq. in.) - Forehead') 
+
+
+
+
+foreContArea%>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(ContArea_Forehead, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(ContArea_Forehead, na.rm = TRUE), 1),
+  ) %>%
+   flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress = "Mean",
+    sd_MaxPress   = "SD"
+  )
+```
+
+## Temporal
+
+### Peak Pressures
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+
+LpeakTMP<- pressDat %>%
+  group_by(Config) %>%
+  mutate(z_score = scale(MaxPress_L_Temporal))
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2 
+
+
+p <- withinSubPlotAvg(LpeakTMP, colName = 'MaxPress_L_Temporal', dir = 'lower','Peak Pressure (kPa) - L Side')
+
+
+LpeakTMP%>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(MaxPress_L_Temporal, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(MaxPress_L_Temporal, na.rm = TRUE), 1),
+  ) %>%
+   flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress = "Mean",
+    sd_MaxPress   = "SD"
+  )
+
+```
+
+### Contact Area
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+
+L_contAreaTMP <- pressDat %>% 
+  mutate(z_score = scale(ContArea_SideUpFrontL)) %>% 
+  group_by(Config)
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+p <- withinSubPlotAvg(L_contAreaTMP, colName = 'ContArea_SideUpFrontL', dir = 'higher','Contact Area (sq. in.) - L Temple to Parietal') 
+
+
+
+L_contAreaTMP%>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(ContArea_SideUpFrontL, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(ContArea_SideUpFrontL, na.rm = TRUE), 1),
+  ) %>%
+   flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress= "Mean",
+    sd_MaxPress   = "SD"
+  )
+```
+
+## Posterior Parietal
+
+### Peak Pressures
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+
+LpeakDorOcc <- pressDat %>% 
+  group_by(Config) %>%
+  mutate(z_score = scale(MaxPress_L_Dorsal_Occipital))  
+  
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+p <- withinSubPlotAvg(LpeakDorOcc, colName = 'MaxPress_L_Dorsal_Occipital', dir = 'lower','Peak Pressure (kPa) - L Post. Parietal') 
+
+
+
+LpeakDorOcc%>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(MaxPress_L_Dorsal_Occipital, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(MaxPress_L_Dorsal_Occipital, na.rm = TRUE), 1),
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress = "Mean",
+    sd_MaxPress   = "SD"
+  )
+
+```
+
+### Contact Area
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+PostPari_contArea<- pressDat %>% 
+  mutate(z_score = scale(ContArea_SideUpRear)) %>% 
+  group_by(Config)
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+p <- withinSubPlotAvg(PostPari_contArea, colName = 'ContArea_SideUpRear', dir = 'higher','Contact Area (sq. in.) - Post. Parietal') 
+
+
+
+PostPari_contArea %>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(ContArea_SideUpRear, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(ContArea_SideUpRear, na.rm = TRUE), 1),
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress  = "Mean",
+    sd_MaxPress   = "SD"
+  )
+
+```
+
+## Occipital
+
+### Peak Pressures
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+
+LpeakDistOcc <- pressDat %>% 
+  group_by(Config) %>%
+  mutate(z_score = scale(MaxPress_L_Distal_Occipital))  
+  
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+p <- withinSubPlotAvg(LpeakDistOcc, colName = 'MaxPress_L_Distal_Occipital', dir = 'lower','Peak Pressure (kPa) - L Occipital') 
+
+LpeakDistOcc %>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(MaxPress_L_Distal_Occipital, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(MaxPress_L_Distal_Occipital, na.rm = TRUE), 1),
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress  = "Mean",
+    sd_MaxPress  = "SD"
+  )
+
+```
+
+### Contact Area
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+Occ_ContArea <- pressDat %>% 
+  mutate(z_score = scale(ContArea_SideLowRear)) %>% 
+  group_by(Config)
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| layout-ncol: 2
+
+
+
+p <- withinSubPlotAvg(Occ_ContArea, colName = 'ContArea_SideLowRear', dir = 'higher','Contact Area (sq.in.) - Occipital')  
+
+
+
+Occ_ContArea %>%
+  group_by(Config) %>%
+  summarize(
+     mean_MaxPress = round(mean(ContArea_SideLowRear, na.rm = TRUE), 2),
+    sd_MaxPress   = round(sd(ContArea_SideLowRear, na.rm = TRUE), 1),
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Config     = "Configuration",
+    mean_MaxPress = "Mean",
+    sd_MaxPress   = "SD"
+  )
+
+```

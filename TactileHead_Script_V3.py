@@ -73,12 +73,40 @@ def buildSection(dat, starts, step):
     return joined
 
 def extract_sensel_num(col_name):
+    '''
+    
+
+    Parameters
+    ----------
+    col_name : str
+        String of the elem number e.g., elem866.
+
+    Returns
+    -------
+    TYPE
+        match: extracts sensel integer.
+
+    '''
     """Extract the integer sensel number from a column name like 'elem123 [psi.]'."""
     match = re.search(r'elem(\d+)', col_name)
     return int(match.group(1)) if match else np.nan
 
 
 def pressureProminence(pressureArray):
+    '''
+    
+
+    Parameters
+    ----------
+    pressureArray : array 3d [x by y by z]
+        A 3D array [frame by column x row] of the pressure section.
+
+    Returns
+    -------
+    prominence: float
+        Extracts the max prominence value from the entire time series.
+
+    '''
 
     prominence = []
 
@@ -177,6 +205,22 @@ def build_pressure_matrix(pressure_csv_path, dat2D):
 
 #Function that Calculate Root Mean Square 
 def rmsValue(arr, n):
+    '''
+    
+
+    Parameters
+    ----------
+    arr : series
+        Series of values.
+    n : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    root : float
+        root mean squared of the section.
+
+    '''
     square = 0
     mean = 0.0
     root = 0.0

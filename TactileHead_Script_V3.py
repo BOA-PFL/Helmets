@@ -25,7 +25,8 @@ from scipy import stats
 
 
 
-fPath = 'C:\\Users\\bethany.kilpatrick\\Boa Technology Inc\\PFL Team - General\\Testing Segments\\Helmets\\2026_Performance_GiantPressure_Giant\\CSV\\'
+# fPath = 'C:\\Users\\bethany.kilpatrick\\Boa Technology Inc\\PFL Team - General\\Testing Segments\\Helmets\\2026_Performance_GiantPressure_Giant\\CSV\\'
+fPath = r'C:\Users\minori.iizuka\OneDrive - BOA Technology Inc\PFL Team - General\PFL Internal Studies\Helmet\TactileHead\PlacementSensitivity\\'
 fileExt = r".csv"
 
 entries = [fName for fName in os.listdir(fPath) if fName.endswith(fileExt) and '0_' not in fName]
@@ -37,7 +38,7 @@ dat2D = dat2D.set_index('sensel_id', drop=False)
 
 
 
-save_on = 1
+save_on = 0
  
     
     
@@ -75,7 +76,6 @@ def extract_sensel_num(col_name):
     """Extract the integer sensel number from a column name like 'elem123 [psi.]'."""
     match = re.search(r'elem(\d+)', col_name)
     return int(match.group(1)) if match else np.nan
-
 
 
 def pressureProminence(pressureArray):
@@ -175,6 +175,23 @@ def build_pressure_matrix(pressure_csv_path, dat2D):
 
     return matrix
 
+#Function that Calculate Root Mean Square 
+def rmsValue(arr, n):
+    square = 0
+    mean = 0.0
+    root = 0.0
+    
+    #Calculate square
+    for i in range(0,n):
+        square += (arr[i]**2)
+    
+    #Calculate Mean 
+    mean = (square / (float)(n))
+    
+    #Calculate Root
+    root = math.sqrt(mean)
+    
+    return root
 # First number of each row
 R_Dist_Occ_starts = [1472, 1503, 1534, 1565, 1596, 1627, 1658, 1689, 1720, 1751, 1162] 
 # How long is the row
@@ -197,8 +214,6 @@ L_Temporal_step = 16
 
 
 all_outcomes = []
-
-
 
 
 ## save configuration names from files
@@ -229,6 +244,8 @@ for fName in entries:
         # Combined Occipital (e.g., dorsal,distal,entire occipital)
         dorsalOccipital2D =  np.concat((LDorsalOcc2D,RDorsalOcc2D),axis=2)
         distalOccipital2D =  np.concat((LDistalOcc2D,RDistalOcc2D),axis=2)
+        rightOccipital2D =  pressureMap2D[:,0:20,0:13]
+        leftOccipital2D = pressureMap2D[:,0:20,79:97]
         Occipital2D = np.concat((distalOccipital2D,dorsalOccipital2D),axis=1)
         
         
@@ -264,6 +281,29 @@ for fName in entries:
                           + ContArea_SideLowRear + ContArea_SideUpFrontL 
                           + ContArea_SideUpFrontR)
         
+        # --- Total Force----
+        total_force_cols = [
+                'Crown Total Force [lbs.]',
+                'Forehead Total Force [lbs.]',
+                'Side UpRear Total Force [lbs.]',
+                'Side LowRear Total Force [lbs.]',
+                'Side UpFront R Total Force [lbs.]',
+                'Side UpFront L Total Force [lbs.]', 
+                
+                                ]
+        force_means = dat[total_force_cols].mean()
+
+        avg_all_TotalForce    = float(force_means.sum())
+        TotalForce_Crown      = float(force_means['Crown Total Force [lbs.]'])
+        TotalForce_Forehead   = float(force_means['Forehead Total Force [lbs.]'])
+        TotalForce_SideUpRear = float(force_means['Side UpRear Total Force [lbs.]'])
+        TotalForce_SideLowRear    = float(force_means['Side LowRear Total Force [lbs.]'])
+        TotalForce_SideUpFrontR   = float(force_means['Side UpFront R Total Force [lbs.]'])
+        TotalForce_SideUpFrontL   = float(force_means['Side UpFront L Total Force [lbs.]'])
+        TotalForce_Total = (TotalForce_Crown + TotalForce_Forehead + TotalForce_SideUpRear 
+                          + TotalForce_SideLowRear + TotalForce_SideUpFrontL 
+                          + TotalForce_SideUpFrontR)
+        
         
         # Drop all columns containing these measurement suffixes
         suffixes = ['Average Pressure', 'Minimum Pressure', 'Maximum Pressure', 
@@ -294,15 +334,17 @@ for fName in entries:
         crown = np.mean(crown, axis=0)
     
         Crown_Tot = np.sum(np.mean(crown_na, axis=0))
-        avg_Crown = float(np.nanmean(crown_na.values)) * 6.895
-        crownMax = float(np.nanmax(crown_na)) * 6.895
+        avg_crown = float(np.nanmean(crown_na.values)) * 6.895
+        crown_max = float(np.nanmax(crown_na)) * 6.895
+        sd_crown = float(np.nanstd(crown_na)) * 6.895
+        cov_crown = float(sd_crown / avg_crown)
         crown_max_sensel_column = np.nanargmax(np.mean(crown_na, axis=0), axis=0)
         crown_max_sensel_col_name = crown_na.columns[crown_max_sensel_column]
         
         # --- Forehead: contiguous elem866-1161 ---
         Frontal = dat.loc[:,'elem866 [psi.]':'elem1161 [psi.]']
-        Frontal = np.mean(Frontal, axis = 0)
         Frontal_na = Frontal.replace(0, np.nan)
+        Frontal = np.mean(Frontal, axis = 0)
         Frontal_Tot = np.sum(Frontal_na)
         avg_Frontal = float(np.nanmean(Frontal_na.values)) * 6.895
         sd_Frontal = float(np.nanstd(Frontal_na.values)) * 6.895
@@ -314,10 +356,10 @@ for fName in entries:
         ppsFrontal15 = (Frontal_na.values * 6.895 > 15).sum()
         ppsFrontal20 = (Frontal_na.values * 6.895 > 20).sum()
 
-
+        # --- Right Distal Occipital: ---
         R_Distal_Occipital = buildSection(dat, R_Dist_Occ_starts, R_Dist_Occ_step)
-        R_Distal_Occipital = np.mean(R_Distal_Occipital, axis = 0)
         R_Distal_Occipital_na = R_Distal_Occipital.replace(0, np.nan)
+        R_Distal_Occipital = np.mean(R_Distal_Occipital, axis = 0)
         tot_R_Distal_Occipital = np.sum(R_Distal_Occipital_na)
         avg_R_Distal_Occipital = float(np.nanmean(R_Distal_Occipital_na.values)) * 6.895
         sd_R_Distal_Occipital = float(np.nanstd(R_Distal_Occipital_na.values)) * 6.895
@@ -329,10 +371,10 @@ for fName in entries:
         ppsRDistOcc15 = (R_Distal_Occipital_na.values * 6.895 > 15).sum()
         ppsRDistOcc20 = (R_Distal_Occipital_na.values * 6.895 > 20).sum()
 
-
+        # --- Right Dorsal Occipital: ---
         R_Dorsal_Occipital = buildSection(dat, R_Dor_Occ_starts, R_Dor_Occ_step)
-        R_Dorsal_Occipital = np.mean(R_Dorsal_Occipital, axis = 0)
         R_Dorsal_Occipital_na = R_Dorsal_Occipital.replace(0, np.nan)
+        R_Dorsal_Occipital = np.mean(R_Dorsal_Occipital, axis = 0)
         tot_R_Dorsal_Occipital = np.sum(R_Dorsal_Occipital_na)
         avg_R_Dorsal_Occipital = float(np.nanmean(R_Dorsal_Occipital_na.values)) * 6.895
         sd_R_Dorsal_Occipital = float(np.nanstd(R_Dorsal_Occipital_na.values)) * 6.895
@@ -344,10 +386,10 @@ for fName in entries:
         ppsRDorsOcc15 = (R_Dorsal_Occipital_na.values * 6.895 > 15).sum()
         ppsRDorsOcc20 = (R_Dorsal_Occipital_na.values * 6.895 > 20).sum()
 
-
+        # --- Right Temporal: ---
         R_temporal = buildSection(dat, R_temporal_starts, R_temporal_step)
-        R_temporal = np.mean(R_temporal, axis = 0)
         R_temporal_na = R_temporal.replace(0, np.nan)
+        R_temporal = np.mean(R_temporal, axis = 0)
         tot_R_temporal = np.sum(R_temporal_na)
         avg_R_temporal = float(np.nanmean(R_temporal_na.values)) * 6.895
         sd_R_temporal = float(np.nanstd(R_temporal_na.values)) * 6.895
@@ -359,10 +401,10 @@ for fName in entries:
         ppsRtemp15 = (R_temporal_na.values * 6.895 > 15).sum()
         ppsRtemp20 = (R_temporal_na.values * 6.895 > 20).sum()
 
-
+        # --- Left Distal Occipital: ---
         L_Distal_Occipital = buildSection(dat, L_Dist_Occ_starts, L_Dist_Occ_step)
-        L_Distal_Occipital = np.mean(L_Distal_Occipital, axis = 0)
         L_Distal_Occipital_na = L_Distal_Occipital.replace(0, np.nan)
+        L_Distal_Occipital = np.mean(L_Distal_Occipital, axis = 0)
         tot_L_Distal_Occipital = np.sum(L_Distal_Occipital_na)
         avg_L_Distal_Occipital = float(np.nanmean(L_Distal_Occipital_na.values)) * 6.895
         sd_L_Distal_Occipital = float(np.nanstd(L_Distal_Occipital_na.values)) * 6.895
@@ -374,10 +416,10 @@ for fName in entries:
         ppsLDistOcc15 = (L_Distal_Occipital_na.values * 6.895 > 15).sum()
         ppsLDistOcc20 = (L_Distal_Occipital_na.values * 6.895 > 20).sum()
 
-
+        # --- Left Distal Occipital: ---
         L_Dorsal_Occipital = buildSection(dat, L_Dor_Occ_starts, L_Dor_Occ_step)
-        L_Dorsal_Occipital = np.mean(L_Dorsal_Occipital, axis = 0)
         L_Dorsal_Occipital_na = L_Dorsal_Occipital.replace(0, np.nan)
+        L_Dorsal_Occipital = np.mean(L_Dorsal_Occipital, axis = 0)
         tot_L_Dorsal_Occipital = np.sum(L_Dorsal_Occipital_na)
         avg_L_Dorsal_Occipital = float(np.nanmean(L_Dorsal_Occipital_na.values)) * 6.895
         sd_L_Dorsal_Occipital = float(np.nanstd(L_Dorsal_Occipital_na.values)) * 6.895
@@ -390,10 +432,10 @@ for fName in entries:
         ppsLDorsOcc15 = (L_Dorsal_Occipital_na.values * 6.895 > 15).sum()
         ppsLDorsOcc20 = (L_Dorsal_Occipital_na.values * 6.895 > 20).sum()
 
-
+        # --- Left Temporal: ---
         L_Temporal = buildSection(dat, L_Temporal_starts, L_Temporal_step)
-        L_Temporal = np.mean(L_Temporal, axis = 0)
         L_Temporal_na = L_Temporal.replace(0, np.nan)
+        L_Temporal = np.mean(L_Temporal, axis = 0)
         tot_L_Temporal = np.sum(L_Temporal_na)
         avg_L_Temporal = float(np.nanmean(L_Temporal_na.values)) * 6.895
         sd_L_Temporal = float(np.nanstd(L_Temporal_na.values)) * 6.895
@@ -446,16 +488,29 @@ for fName in entries:
         
         # Prominence Calculations
         prominenceForehead = pressureProminence(forehead2D)
+        prominenceCrown = pressureProminence(crown2D)
         prominenceLTemple = pressureProminence(LTemple2D)
         prominenceLDistalOcc = pressureProminence(LDistalOcc2D)
         prominenceLDorsalOcc = pressureProminence(LDorsalOcc2D)
         prominenceRTemple = pressureProminence(RTemple2D)
         prominenceRDistalOcc = pressureProminence(RDistalOcc2D)
         prominenceRDorsalOcc = pressureProminence(RDorsalOcc2D)
-        prominencedorsalOccipital =  pressureProminence(dorsalOccipital2D)
-        prominencedistalOccipital =  pressureProminence(distalOccipital2D)
+        prominenceDorsalOccipital =  pressureProminence(dorsalOccipital2D)
+        prominenceDistalOccipital =  pressureProminence(distalOccipital2D)
+        prominenceRightOccipital =  pressureProminence(rightOccipital2D)
+        prominenceLeftOccipital =  pressureProminence(leftOccipital2D)
         prominenceOccipital = pressureProminence(Occipital2D)
         
+        # Comfort Indices
+        sensorIndAvg = np.mean(allSides, axis = 0)
+        sensorTotAvg = np.mean(allSides)
+        sensorTot    = np.mean(np.sum(allSides,axis = 1))
+        sensorDif = [abs(value - sensorTotAvg) for value in sensorIndAvg]
+        stDev = np.std(sensorIndAvg)
+        rms = rmsValue(sensorIndAvg, len(sensorIndAvg))
+            
+        comfortIndex1 = 100*(1 - sum(sensorDif)/(sensorTot+(len(sensorIndAvg)-2)*sensorTotAvg))
+        comfortIndex2 = 100*(1 - stDev/rms)
 
         
         
@@ -468,8 +523,14 @@ for fName in entries:
     ContArea_SideUpFrontR,
     ContArea_SideUpFrontL, ContArea_Total,
     overallAvg, overallMax,
-    overallAvg, overallMax, 
+    avg_all, MaxPress_all, 
     
+    avg_all_TotalForce,
+    TotalForce_Crown,TotalForce_Forehead,TotalForce_SideUpRear,
+    TotalForce_SideLowRear,TotalForce_SideUpFrontR,
+    TotalForce_SideUpFrontL,TotalForce_Total,
+    
+    avg_crown, crown_max, cov_crown,
     avg_Frontal, frontalMax, cov_Frontal,
     avg_R_Distal_Occipital, MaxPress_R_Distal_Occipital, cov_R_Distal_Occipital,
     avg_R_Dorsal_Occipital, MaxPress_R_Dorsal_Occipital, cov_R_Dorsal_Occipital,
@@ -491,15 +552,19 @@ for fName in entries:
     L_Dorsal_Occipital_max_sensel,
     L_Temporal_max_sensel,
     prominenceForehead,
+    prominenceCrown,
     prominenceLTemple,
     prominenceLDistalOcc,
     prominenceLDorsalOcc,
     prominenceRTemple,
     prominenceRDistalOcc,
     prominenceRDorsalOcc,
-    prominencedorsalOccipital,
-    prominencedistalOccipital,
-    prominenceOccipital
+    prominenceDorsalOccipital,
+    prominenceDistalOccipital,
+    prominenceRightOccipital,
+    prominenceLeftOccipital,
+    prominenceOccipital,
+    comfortIndex1, comfortIndex2
 ])
 
         
@@ -514,8 +579,14 @@ outcomes = pd.DataFrame(all_outcomes, columns=[
     'ContArea_SideUpFrontR',
     'ContArea_SideUpFrontL','ContArea_Total',
     'overallAvg', 'overallMax',
-    'avg_all', 'MaxPress_all', 
+    'avg_all', 'MaxPress_all',
     
+    'avg_all_TotalForce',
+    'TotalForce_Crown','TotalForce_Forehead','TotalForce_SideUpRear',
+    'TotalForce_SideLowRear','TotalForce_SideUpFrontR',
+    'TotalForce_SideUpFrontL','TotalForce_Total',
+    
+    'avg_crown', 'crown_max', 'cov_crown',
     "avg_Frontal", "frontalMax", "cov_Frontal",
     "avg_R_Distal_Occipital", "MaxPress_R_Distal_Occipital", "cov_R_Distal_Occipital",
     "avg_R_Dorsal_Occipital", "MaxPress_R_Dorsal_Occipital", "cov_R_Dorsal_Occipital",
@@ -537,15 +608,19 @@ outcomes = pd.DataFrame(all_outcomes, columns=[
     'L_Dorsal_Occipital_max_sensel',
     'L_Temporal_max_sensel',
     'prominenceForehead',
+    'prominenceCrown',
     'prominenceLTemple',
     'prominenceLDistalOcc',
     'prominenceLDorsalOcc',
     'prominenceRTemple',
     'prominenceRDistalOcc',
     'prominenceRDorsalOcc',
-    'prominencedorsalOccipital',
-    'prominencedistalOccipital',
-    'prominenceOccipital'
+    'prominenceDorsalOccipital',
+    'prominenceDistalOccipital',
+    'prominenceRightOccipital',
+    'prominenceLeftOccipital',
+    'prominenceOccipital',
+    'comfortIndex1', 'comfortIndex2'
 ])
         
 

@@ -30,24 +30,25 @@ import matplotlib
 import os
 
 # Load TactileHead Pressure Data
-pressure_data_folder = r"C:\Users\minori.iizuka\OneDrive - BOA Technology Inc\PFL Team - General\Testing Segments\Helmets\2026_Performance_GiantPressure_Giant\CSV"
-file_number = 0
+pressure_data_folder = r"C:\Users\bethany.kilpatrick\BOA Technology Inc\PFL Team - General\Testing Segments\Helmets\2026_Performance_GiantPressure_Giant\CSV"
+file_number = 0 #Trial specific index
 entries = [fName for fName in os.listdir(pressure_data_folder)
            if fName.endswith('.csv') and '0_' not in fName]
-filePath2D = r"C:\Users\minori.iizuka\OneDrive - BOA Technology Inc\PFL Team - General\Helmets\TactileHead\3D_Model\sensel_display_positions.csv"
+filePath2D = r"C:\Users\bethany.kilpatrick\BOA Technology Inc\PFL Team - General\Helmets\TactileHead\3D_Model\sensel_display_positions.csv"
 dat2D = pd.read_csv(filePath2D)
-model_3D_CSV = r"C:\Users\minori.iizuka\OneDrive - BOA Technology Inc\PFL Team - General\Helmets\TactileHead\3D_Model\full_head_model_calibrated.csv"
+model_3D_CSV = r"C:\Users\bethany.kilpatrick\BOA Technology Inc\PFL Team - General\Helmets\TactileHead\3D_Model\full_head_model_calibrated.csv"
 model_3D = pd.read_csv(model_3D_CSV)
 
-save_gif = 1
+save_gif = 0
 save_obj = 0
-save_image = 1
+save_image = 1 
 # %%
 
 N_FRAMES = 60          # more = smoother rotation but a bigger file
 ELEV = 120              # camera elevation angle (degrees)
 DURATION_MS = 100       # ms per frame -- lower = faster spin
 COLOR_COL = "y"        # column in RESULT_CSV to color points by (e.g. "y" = row index)
+magnification = 1.0
 
 # Which world axis to spin the points around (rotates the DATA, camera stays
 # fixed -- matplotlib's view_init only ever orbits the camera around Z, so
@@ -76,7 +77,7 @@ def make_rotating_gif(model_3D: pd.DataFrame, out_path: str,
                        n_frames: int = 60, elev: float = 15, duration_ms: int = 60,
                        color_col: Optional[Union[str, pd.Series]] = "y",
                        rotation_axis: str = "y", axis_line_length: float = 1.15,
-                       zoom: float = 1.5, vmin: float = None, vmax: float = None,
+                       zoom: float = 1.5, vmin: float = None, vmax: float = None, #default is 1.5, smaller numbers will look more condensed. Start with 1 and go down from there
                        show_colorbar: bool = True,
                        figsize=(7, 7), dpi: int = 100):
     frames = []
@@ -107,9 +108,10 @@ def make_rotating_gif(model_3D: pd.DataFrame, out_path: str,
         pts = (pts0 - center) @ R.T + center
 
         fig = plt.figure(figsize=figsize)
-        ax = fig.add_subplot(111, projection="3d")
+        ax = fig.add_subplot(111, projection="3d") 
+        ax.set_facecolor('Black')
         sc = ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2],
-                         c=colors, cmap="viridis", vmin=vmin_, vmax=vmax_, s=6)
+                         c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
         if show_colorbar and not isinstance(colors, str):
             fig.colorbar(sc, ax=ax, shrink=0.6,
                          label=color_col if isinstance(color_col, str) else "psi")
@@ -117,9 +119,10 @@ def make_rotating_gif(model_3D: pd.DataFrame, out_path: str,
         ax.set_xlim(center[0] - radius, center[0] + radius)
         ax.set_ylim(center[1] - radius, center[1] + radius)
         ax.set_zlim(center[2] - radius, center[2] + radius)
-        ax.set_box_aspect([1, 1, 1])
+        ax.set_box_aspect([1, 1, 1]) 
         ax.view_init(elev=elev, azim=-90)
-        ax.grid(False)
+        ax.grid(False) 
+        ## Background script
         ax.axis('off')
 
         buf = io.BytesIO()
@@ -139,7 +142,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
                        elev: float = 0,
                        color_col: Optional[Union[str, pd.Series]] = "y",
                        rotation_axis: str = "y", axis_line_length: float = 1.15,
-                       zoom: float = 1.5, vmin: float = None, vmax: float = None,
+                       zoom: float = 1.5, vmin: float = None, vmax: float = None, # default is 1.5 
                        show_colorbar: bool = True,
                        figsize=(7, 7), dpi: int = 100):
     
@@ -176,7 +179,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_back[:, 0], pts_back[:, 1], pts_back[:, 2],
-                     c=colors, cmap="viridis", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -185,8 +188,9 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     ax.set_ylim(center[1] - radius, center[1] + radius)
     ax.set_zlim(center[2] - radius, center[2] + radius)
     ax.set_box_aspect([1, 1, 1])
-    ax.view_init(elev=elev, azim=-90)
-    ax.grid(False)
+    ax.view_init(elev=elev, azim=-90) 
+    # ax.set_facecolor('#000000')
+    ax.grid(False) 
     ax.axis('off')
     fig.savefig(back_out_path, format="png", dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -196,7 +200,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_front[:, 0], pts_front[:, 1], pts_front[:, 2],
-                     c=colors, cmap="viridis", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -206,6 +210,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     ax.set_zlim(center[2] - radius, center[2] + radius)
     ax.set_box_aspect([1, 1, 1])
     ax.view_init(elev=elev, azim=-90)
+    # ax.set_facecolor('#000000')
     ax.grid(False)
     ax.axis('off')
 
@@ -218,7 +223,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_left[:, 0], pts_left[:, 1], pts_left[:, 2],
-                     c=colors, cmap="viridis", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -229,6 +234,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     ax.set_box_aspect([1, 1, 1])
     ax.view_init(elev=elev, azim=-90)
     ax.grid(False)
+    # ax.set_facecolor('#000000')
     ax.axis('off')
 
     fig.savefig(left_out_path, format="png", dpi=dpi, bbox_inches="tight")
@@ -240,7 +246,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_right[:, 0], pts_right[:, 1], pts_right[:, 2],
-                     c=colors, cmap="viridis", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -251,6 +257,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     ax.set_box_aspect([1, 1, 1])
     ax.view_init(elev=elev, azim=-90)
     ax.grid(False)
+    # ax.set_facecolor('#000000')
     ax.axis('off')
 
     # buf = io.BytesIO()
@@ -263,7 +270,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_top[:, 0], pts_top[:, 1], pts_top[:, 2],
-                     c=colors, cmap="viridis", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -274,6 +281,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     ax.set_box_aspect([1, 1, 1])
     ax.view_init(elev=180, azim=-90)
     ax.grid(False)
+    # ax.set_facecolor('#000000')
     ax.axis('off')
 
     # buf = io.BytesIO()
@@ -350,13 +358,13 @@ def load_mean_pressure_series(fPath, dat2D, file_ext=".csv", file_index=0,
 
 MARKER_RADIUS = 1.5      # visual size of each sensel marker (mm)
 COLOR_COL = "y"          # column in RESULT_CSV to color by (e.g. a pressure column, or "y" for row index)
-CMAP_NAME = "viridis"    # any matplotlib colormap name
+CMAP_NAME = "gnuplot2"    # any matplotlib colormap name
 VMIN = None              # None -> auto (min of COLOR_COL); set a number to fix the scale
 VMAX = None              # None -> auto (max of COLOR_COL)
 
 
 def make_colored_scene(model_3D: pd.DataFrame, values, marker_radius: float = 1.5,
-                        marker_subdiv=(8, 8), cmap_name: str = "viridis",
+                        marker_subdiv=(8, 8), cmap_name: str = "gnuplot2",
                         vmin: float = None, vmax: float = None) -> trimesh.Scene:
     """Builds a sphere at every sensel position, colored by `values` using
     a real per-object material (Kd diffuse color) -- NOT the inline
@@ -415,23 +423,23 @@ def tactile_head_3D_html(model_3D: pd.DataFrame, out_path: str,
     fig.show()
     fig.write_html(out_path)
 #%%
-fname_no_ext = os.path.splitext(entries[file_number])[0]
-os.makedirs(os.path.join(pressure_data_folder, "visualizations",'gif'), exist_ok=True)
-os.makedirs(os.path.join(pressure_data_folder, "visualizations",'obj'), exist_ok=True)
-OUT_PATH_GIF_Specific = pressure_data_folder + f'\\visualizations\\gif\\{fname_no_ext}rotation.gif'
-OUT_PATH_OBJ = pressure_data_folder+f'\\visualizations\\obj\\{fname_no_ext}_head_model_colored.obj'
-OUT_PATH_GLB = pressure_data_folder+f'\\visualizations\\obj\\{fname_no_ext}_head_model_colored.glb'
+fname_no_ext = os.path.splitext(entries[file_number])[0] #trial specific
+os.makedirs(os.path.join(pressure_data_folder, "3D_Mapping",'gif'), exist_ok=True)
+os.makedirs(os.path.join(pressure_data_folder, "3D_Mapping",'obj'), exist_ok=True)
+OUT_PATH_GIF_Specific = pressure_data_folder + f'\\3D_Mapping\\gif\\Trial_{fname_no_ext}_rotation.gif' #Trial specific
+OUT_PATH_OBJ = pressure_data_folder+f'\\3D_Mapping\\obj\\{fname_no_ext}_head_model_colored.obj'
+OUT_PATH_GLB = pressure_data_folder+f'\\3D_Mapping\\obj\\{fname_no_ext}_head_model_colored.glb'
 # Specific Trial
-os.makedirs(os.path.join(pressure_data_folder, "visualizations","images"), exist_ok=True)
-OUT_PATH_TOP = pressure_data_folder+'\\visualizations\\images\\{fname_no_ext}top.png'
-OUT_PATH_RIGHT = pressure_data_folder+'\\visualizations\\images\\{fname_no_ext}_right.png'
-OUT_PATH_LEFT = pressure_data_folder+'\\visualizations\\images\\{fname_no_ext}_left.png'
-OUT_PATH_BACK = pressure_data_folder+'\\visualizations\\images\\{fname_no_ext}_back.png'
-OUT_PATH_FRONT = pressure_data_folder+'\\visualizations\\images\\{fname_no_ext}_front.png'
-OUT_PATH_HTML = pressure_data_folder+'\\visualizations\\html\\{fname_no_ext}_front.html'
+os.makedirs(os.path.join(pressure_data_folder, "3D_Mapping","TrialSpecificOutput"), exist_ok=True)
+OUT_PATH_TOP = pressure_data_folder+f'\\3D_Mapping\\TrialSpecificOutput\\{fname_no_ext}_top.png'
+OUT_PATH_RIGHT = pressure_data_folder+f'\\3D_Mapping\\TrialSpecificOutput\\{fname_no_ext}_right.png'
+OUT_PATH_LEFT = pressure_data_folder+f'\\3D_Mapping\\TrialSpecificOutput\\{fname_no_ext}_left.png'
+OUT_PATH_BACK = pressure_data_folder+f'\\3D_Mapping\\TrialSpecificOutput\\{fname_no_ext}_back.png'
+OUT_PATH_FRONT = pressure_data_folder+f'\\3D_Mapping\\TrialSpecificOutput\\{fname_no_ext}_front.png'
+OUT_PATH_HTML = pressure_data_folder+f'\\3D_Mapping\\html\\{fname_no_ext}_front.html'
 # Average
-os.makedirs(os.path.join(pressure_data_folder, "visualizations","image_avg"), exist_ok=True)
-os.makedirs(os.path.join(pressure_data_folder, "visualizations","html"), exist_ok=True)
+os.makedirs(os.path.join(pressure_data_folder, "3D_Mapping","PressureAvg_AllConfigs"), exist_ok=True)
+os.makedirs(os.path.join(pressure_data_folder, "3D_Mapping","html"), exist_ok=True)
 
 filtered_series_specific = load_mean_pressure_series(
     pressure_data_folder,
@@ -457,8 +465,8 @@ if save_obj == 1:
         scene = make_colored_scene(model_3D, values_average, marker_radius=MARKER_RADIUS,
                                     cmap_name=CMAP_NAME, vmin=VMIN, vmax=VMAX)
         tag = f"{helmet}_{config}"
-        out_path_obj = os.path.join(pressure_data_folder,"visualizations",'obj', f"{fname_no_ext}_head_model.obj")
-        out_path_glb = os.path.join(pressure_data_folder,"visualizations",'obj', f"{fname_no_ext}_head_model.glb")
+        out_path_obj = os.path.join(pressure_data_folder,"3D_Mapping",'obj', f"{fname_no_ext}_head_model.obj")
+        out_path_glb = os.path.join(pressure_data_folder,"3D_Mapping",'obj', f"{fname_no_ext}_head_model.glb")
         scene.export(out_path_obj, mtl_name=f"head_model_{tag}.mtl")
         scene.export(out_path_glb)
     
@@ -474,21 +482,23 @@ if save_image == 1:
                 OUT_PATH_BACK,OUT_PATH_FRONT,
                 elev= 90,
                 color_col=filtered_series_specific,
+                zoom = magnification,
                 rotation_axis=ROTATION_AXIS, axis_line_length=AXIS_LINE_LENGTH
                 )
     for (helmet,config), values_average in grouped.items():
         tag = f"{helmet}_{config}"
-        out_path_top = os.path.join(pressure_data_folder,"visualizations",'image_avg',f"{tag}_top.png")
-        out_path_left = os.path.join(pressure_data_folder,"visualizations",'image_avg',f"{tag}_left.png")
-        out_path_right = os.path.join(pressure_data_folder,"visualizations",'image_avg',f"{tag}_right.png")
-        out_path_front= os.path.join(pressure_data_folder,"visualizations",'image_avg',f"{tag}_front.png")
-        out_path_back = os.path.join(pressure_data_folder,"visualizations",'image_avg',f"{tag}_back.png")
-        out_path_html = os.path.join(pressure_data_folder,"visualizations",'html',f"{tag}_back.png")
+        out_path_top = os.path.join(pressure_data_folder,"3D_Mapping",'PressureAvg_AllConfigs',f"{tag}_top.png")
+        out_path_left = os.path.join(pressure_data_folder,"3D_Mapping",'PressureAvg_AllConfigs',f"{tag}_left.png")
+        out_path_right = os.path.join(pressure_data_folder,"3D_Mapping",'PressureAvg_AllConfigs',f"{tag}_right.png")
+        out_path_front= os.path.join(pressure_data_folder,"3D_Mapping",'PressureAvg_AllConfigs',f"{tag}_front.png")
+        out_path_back = os.path.join(pressure_data_folder,"3D_Mapping",'PressureAvg_AllConfigs',f"{tag}_back.png")
+        out_path_html = os.path.join(pressure_data_folder,"3D_Mapping",'html',f"{tag}_back.png")
         head_3D_png(model_3D, out_path_top,
                     out_path_right, out_path_left,
                     out_path_back,out_path_front,
                     elev= 90,
-                    color_col=values_average,
+                    color_col= values_average,
+                    zoom = magnification,
                     rotation_axis=ROTATION_AXIS, axis_line_length=AXIS_LINE_LENGTH
                     )
         
@@ -496,18 +506,18 @@ if save_gif == 1:
     # Create GIF of the 3D Pressure Head Data
     make_rotating_gif(model_3D, OUT_PATH_GIF_Specific, n_frames=N_FRAMES, elev=ELEV,
                        duration_ms=DURATION_MS, color_col=filtered_series_specific,
-                       rotation_axis=ROTATION_AXIS, axis_line_length=AXIS_LINE_LENGTH)
+                      zoom = magnification,  rotation_axis=ROTATION_AXIS, axis_line_length=AXIS_LINE_LENGTH)
     for (helmet,config), values_average in grouped.items():
         tag = f"{helmet}_{config}"
-        out_path_gif_average = os.path.join(pressure_data_folder,"visualizations",'gif',f"{tag}_rotation.gif")
+        out_path_gif_average = os.path.join(pressure_data_folder,"3D_Mapping",'gif',f"{tag}_rotation.gif")
         make_rotating_gif(model_3D, out_path_gif_average, n_frames=N_FRAMES, elev=ELEV,
                            duration_ms=DURATION_MS, color_col=values_average,
-                           rotation_axis=ROTATION_AXIS, axis_line_length=AXIS_LINE_LENGTH)
+                          zoom = magnification, rotation_axis=ROTATION_AXIS, axis_line_length=AXIS_LINE_LENGTH)
     
     
     for (helmet,config), values_average in grouped.items():
        tag = f"{helmet}_{config}"
-       out_path_html = os.path.join(pressure_data_folder,"visualizations",'html',f"{tag}.html")
+       out_path_html = os.path.join(pressure_data_folder,"3D_Mapping",'html',f"{tag}.html")
        tactile_head_3D_html(model_3D, out_path_html,
                             color_col=values_average,
                             )

@@ -136,6 +136,98 @@ def make_rotating_gif(model_3D: pd.DataFrame, out_path: str,
     print(f"Wrote {len(frames)}-frame GIF to {out_path}")
     
 
+def visible_half(pts0: np.ndarray, center: np.ndarray, colors,
+                 view: str, hide_far_half: bool = True,
+                 top_cut_y: float = 75.0):
+    """
+    Select the sensels on the half of the shell that faces a view's camera,
+    along with their colors.
+
+    The head model is a hollow shell, so a 2D projection draws two surfaces on
+    top of each other and the far one bleeds through the gaps in the near one
+    -- a posterior hot spot then reads as an anterior one. Keeping only the
+    near half fixes that.
+
+    Which half is near was established by rendering two probe markers
+    straddling the shell center and reading back from the raster which one
+    survived, rather than from matplotlib's view_init documentation (note that
+    all five views pass azim=-90, but elev=90 is matplotlib's degenerate pole,
+    so azim does nothing for the four side views -- the rotation applied to the
+    DATA is what selects the view). In the ORIGINAL unrotated model
+    coordinates the camera-facing half is:
+
+        front  +z          back   -z
+        left   +x          right  -x
+        top    +y
+
+    where x is medial-lateral, y is superior-inferior and z is
+    anterior-posterior. +z is anterior: the cap ends at the brow on the +z
+    side and continues down the occiput to y = -56 on the -z side.
+
+    The four side views cut at the bounding-box center, which is the correct
+    silhouette for a roughly ellipsoidal shell. The top view does NOT, because
+    the crown is nearly single-valued when seen from above -- its pile-up comes
+    from the near-vertical side walls rather than from a far surface -- so it
+    takes an explicit height instead.
+
+    Note: top_cut_y is a coordinate in the model's own frame and is therefore
+    specific to full_head_model_calibrated.csv. Revisit it if the head model is
+    ever recalibrated.
+
+    Parameters
+    ----------
+    pts0 : numpy array (Nx3)
+        sensel positions, unrotated (mm)
+    center : numpy array (3x1)
+        bounding-box center of the full point cloud (mm)
+    colors : pd.Series, numpy array (Nx1), or str
+        per-sensel color values, or a single matplotlib color name
+    view : str
+        'front', 'back', 'left', 'right', or 'top'
+    hide_far_half : bool
+        False returns everything unchanged, for comparison against the old
+        behaviour
+    top_cut_y : float
+        height above which the top view keeps sensels (mm)
+
+    Returns
+    -------
+    [pts_vis, colors_vis] : list
+        pts_vis : numpy array (Mx3) positions that face this view's camera
+        colors_vis : numpy array (Mx1) or str, their matching colors
+
+    """
+    if not hide_far_half:
+        return [pts0, colors]
+
+    if view == "front":
+        mask = pts0[:, 2] > center[2]
+    elif view == "back":
+        mask = pts0[:, 2] < center[2]
+    elif view == "left":
+        mask = pts0[:, 0] > center[0]
+    elif view == "right":
+        mask = pts0[:, 0] < center[0]
+    elif view == "top":
+        mask = pts0[:, 1] > top_cut_y
+    else:
+        raise ValueError(f"unknown view '{view}'")
+
+    pts_vis = pts0[mask]
+
+    # pts0 and colors are matched row-by-row, so BOTH have to be indexed with
+    # the same mask. Masking one and not the other is the usual way this goes
+    # wrong -- matplotlib raises a length mismatch on the c= argument. A
+    # constant string color has nothing to index.
+    if isinstance(colors, str):
+        colors_vis = colors
+    else:
+        colors_arr = np.asarray(colors, dtype=float)
+        colors_vis = colors_arr[mask]
+
+    return [pts_vis, colors_vis]
+
+
 def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
                        right_out_path: str, left_out_path: str,
                        back_out_path: str,front_out_path: str,
@@ -143,6 +235,7 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
                        color_col: Optional[Union[str, pd.Series]] = "y",
                        rotation_axis: str = "y", axis_line_length: float = 1.15,
                        zoom: float = 1.5, vmin: float = None, vmax: float = None, # default is 1.5 
+                       hide_far_half: bool = True, top_cut_y: float = 75.0,
                        show_colorbar: bool = True,
                        figsize=(7, 7), dpi: int = 100):
     
@@ -174,12 +267,14 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     R_left = rotation_matrix(rotation_axis, 270)
 
     ### BACK ###
-    pts_back = (pts0 - center) @ R_back.T + center
+    [pts_vis, colors_back] = visible_half(pts0, center, colors, "back",
+                                          hide_far_half, top_cut_y)
+    pts_back = (pts_vis - center) @ R_back.T + center
 
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_back[:, 0], pts_back[:, 1], pts_back[:, 2],
-                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors_back, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -196,11 +291,13 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     plt.close(fig)
     
     ### Front ###
-    pts_front = (pts0 - center) @ R_front.T + center
+    [pts_vis, colors_front] = visible_half(pts0, center, colors, "front",
+                                          hide_far_half, top_cut_y)
+    pts_front = (pts_vis - center) @ R_front.T + center
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_front[:, 0], pts_front[:, 1], pts_front[:, 2],
-                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors_front, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -218,12 +315,14 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     plt.close(fig)
     
     # Left
-    pts_left = (pts0 - center) @ R_left.T + center
+    [pts_vis, colors_left] = visible_half(pts0, center, colors, "left",
+                                          hide_far_half, top_cut_y)
+    pts_left = (pts_vis - center) @ R_left.T + center
 
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_left[:, 0], pts_left[:, 1], pts_left[:, 2],
-                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors_left, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -241,12 +340,14 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     plt.close(fig)
     
     # Right
-    pts_right = (pts0 - center) @ R_right.T + center
+    [pts_vis, colors_right] = visible_half(pts0, center, colors, "right",
+                                          hide_far_half, top_cut_y)
+    pts_right = (pts_vis - center) @ R_right.T + center
 
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_right[:, 0], pts_right[:, 1], pts_right[:, 2],
-                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors_right, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
@@ -265,12 +366,14 @@ def head_3D_png(model_3D: pd.DataFrame, top_out_path: str,
     plt.close(fig)
     
     # Top
-    pts_top = (pts0 - center) @ R_top.T + center
+    [pts_vis, colors_top] = visible_half(pts0, center, colors, "top",
+                                          hide_far_half, top_cut_y)
+    pts_top = (pts_vis - center) @ R_top.T + center
 
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pts_top[:, 0], pts_top[:, 1], pts_top[:, 2],
-                     c=colors, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
+                     c=colors_top, cmap="gnuplot2", vmin=vmin_, vmax=vmax_, s=6)
     if show_colorbar and not isinstance(colors, str):
         fig.colorbar(sc, ax=ax, shrink=0.6,
                      label=color_col if isinstance(color_col, str) else "psi")
